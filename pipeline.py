@@ -33,7 +33,7 @@ cooldown_time = 30
 reloading_time = 5
 
 fps = 30
-height = [1000,1000]
+height = [13,9]
 frame_counter = 0
 frame_id = 0
 cooldown_frames = int(fps * cooldown_time)  
@@ -126,7 +126,7 @@ def production_mode_processing(frame, timestamp):
             circle_coordinates = np.array(circle_coordinates)
             x, y = circle_coordinates[2:-2,0], np.array(circle_coordinates[2:-2,1])
             #9
-            pixel_height = [max(circle_coordinates[0:2,1]), max(circle_coordinates[-2:,1])]
+            pixel_height = [max(circle_coordinates[0:2,1]) - min(circle_coordinates[0:,1]), max(circle_coordinates[-2:,1]) - min(circle_coordinates[0:,1])]
             spline = UnivariateSpline(x, y, s= 3000)
 
             new_x = np.linspace(x[0], x[-1], 71)
@@ -461,22 +461,22 @@ def reset_all(end_video_dialog = None):
     if end_video_dialog is not None:
         end_video_dialog.destroy()
     global inputs, cap, original_size, capture_frames, fps, dataf, frame_counter, frame_id, cooldown_frames, reloading_frames, previous_area, previous_previous_area
-    #inputs = {}
-    #if cap:
-    #    cap.release()
-    #cap = None
+    inputs = {}
+    if cap:
+        cap.release()
+    cap = None
     original_size = None
-    #dataf = pd.DataFrame(columns = np.arange(71))
+    dataf = pd.DataFrame(columns = np.arange(71))
     capture_frames = False
     #fps = 30
     video_label.config(image='')
-    #frame_counter = 0
-    #frame_id = 0
-    #cooldown_frames = int(fps * cooldown_time)  # Assuming 30 FPS
-    #reloading_frames = int(fps * reloading_time)
+    frame_counter = 0
+    frame_id = 0
+    cooldown_frames = int(fps * cooldown_time)  # Assuming 30 FPS
+    reloading_frames = int(fps * reloading_time)
 
-    #previous_area = 0
-    #previous_previous_area = 0
+    previous_area = 0
+    previous_previous_area = 0
     print("All settings reset.")
 
 def show_production_options():

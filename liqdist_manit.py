@@ -4,11 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pandas as pd 
+import csv
 from cv2 import aruco
 import yaml
 import tkinter as tk
 from PIL import Image, ImageTk
-from tkinter import filedialog
+from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import RectBivariateSpline
+import plotly.graph_objects as go
 
 PRODUCTION_MODE = False
 DEBUG_MODE = True
@@ -16,6 +19,196 @@ DEBUG_MODE = True
 # Example usage
 filename = "10.130.191.134_01_20240628141844680_1.mp4"
 #vid = cv2.VideoCapture(f'./Vids/{filename}')
+
+def plot_3dplot_heatmap(ball_coordinates, ratio):
+    dataf = ball_coordinates
+    row_max = dataf.max(axis=1)
+    threshold = row_max.max() * 0.05
+
+    mask = dataf >= threshold
+    print(mask)
+    
+    dataf = dataf[mask] 
+    dataf.fillna(0, inplace=True)
+    # Create a grid of coordinates for the smooth plot
+    #y_smooth = np.linspace(0, y[-1], 100)
+    #x_smooth, y_smooth = np.meshgrid(x, y_smooth)
+    #                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               = spl(y_smooth)
+
+    z = dataf.values * ratio
+    y = dataf.columns.values * 15.5
+    x = np.int32(dataf.index.values) * 10
+
+    spline = RectBivariateSpline(x, y, z, s = 20000)
+    z_smooth = pd.DataFrame(spline(x, y) ,index = np.int32(dataf.index.values))
+
+    row_min = z_smooth.min(axis=1)
+    z_smooth = z_smooth.sub(row_min, axis=0)
+
+    #print(z_smooth)
+    #print(x.shape,y.shape,z.shape)      
+    #new_x = np.linspace(x[0], x[-1], 100)
+    #new_y = np.linspace(y[0], y[-1], 100)
+    #print(new_x,new_y)
+    #z_smooth = spline(new_x, new_y)
+
+    z_smooth.loc[0] = np.zeros_like(z_smooth.loc[1])
+    z_smooth.loc[z_smooth.shape[0]] = np.zeros_like(z_smooth.loc[1])
+
+    z_smooth = z_smooth.sort_index()
+
+    row_max = z_smooth.max(axis=1)
+
+    threshold = row_max.max() * 0.2
+    mask = z_smooth >= threshold
+    z_smooth = z_smooth[mask] 
+    z_smooth.fillna(0, inplace=True)
+
+    x = np.int32(z_smooth.index.values) * 15.6
+    
+    # Create the 3D surface plot
+
+    fig = go.Figure(data=[go.Surface(z=z_smooth, x=y, y=x)])
+
+    # Interpolate onto a new grid
+    n = 50  # Increase the number of points by a factor of n
+    x_new = np.linspace(0, x[-1], n * len(x))
+    y_new = np.linspace(0, y[-1], n * len(y))
+    
+    heat_spline = RectBivariateSpline(x, y, z_smooth)
+
+    # Get the interpolated values
+    z_new = pd.DataFrame(heat_spline(x_new, y_new))
+    row_max = z_new.max(axis=1)
+
+    threshold = row_max.max() * 0.2
+    mask = z_new >= threshold
+    
+    z_new = z_new[mask] 
+    z_new.fillna(0, inplace=True)
+    heatmap_fig = go.Figure(data=[go.Heatmap(z=z_new, x=y_new, y=x_new, colorscale='Viridis')])
+
+    heatmap_fig.update_layout(
+    scene=dict(
+        xaxis=dict(
+            title='X Axis'
+        ),
+        yaxis=dict(
+            title='Y Axis'
+        ),
+        zaxis=dict(
+            title='Z Axis'
+        ),
+        aspectmode='data'  # Ensures that x and y are scaled according to their data range
+    ))
+    heatmap_fig.show()
+
+    #fig.update_layout(scene=dict(
+    #                    xaxis_title='X Axis',
+    #                    yaxis_title='Y Axis',
+    #                    zaxis_title='Z Axis'),
+    #                    title='3D Scatter Plot')
+
+    fig.update_layout(
+    scene=dict(
+        xaxis=dict(
+            title='X Axis'
+        ),
+        yaxis=dict(
+            title='Y Axis'
+        ),
+        zaxis=dict(
+            title='Z Axis'
+        ),
+        aspectmode='data'  # Ensures that x and y are scaled according to their data range
+    ))
+    
+    fig.show()
+    fig.write_html("3D_plot.html")
+
+    #fig.show()
+    if not os.path.exists("images"):
+        os.mkdir("images")
+    
+    fig.write_image("images/3Dplot.pdf")
+    heatmap_fig.write_image('images/heatmap.pdf')
+
+def image_to_new_y(frame, height, debug_image_counter):
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
+    aruco_params = aruco.DetectorParameters()
+    camera_matrix, distortion_coefficients = read_cam_calibration()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #arucodetector = aruco.ArucoDetector()
+    corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)
+
+    current_area = compute_marker_area(corners)
+    max_frame = frame.copy()
+    #print(f"Local max area found at {time.time / 1000:.1f}s with area {current_area:.1f} pixels")
+    arucoFound = detect_arucos(max_frame,camera_matrix,distortion_coefficients)
+    img_cr = crop_image(max_frame,arucoFound)
+    output_dir = 'Cropped_img'
+    cv2.imwrite('./'+ output_dir+'/detected_green_'+ str(debug_image_counter) + '.jpg', img_cr)
+                #------------------------------------------------------------------------------------------
+                
+    img_bw, circles = process_image(img_cr)
+                # Find contours in the mask
+                #contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        circle_coordinates = []
+        for i in circles[0, :]:
+            center = [i[0],img_cr.shape[1] - i[1]]
+            circle_coordinates.append(center)
+                        # Draw the outer circle
+            cv2.circle(img_bw, (i[0], i[1]), i[2], (0, 255, 0), 2)
+                        # Draw the center of the circle
+            cv2.circle(img_bw, (i[0], i[1]), 2, (0, 0, 255), 3)
+
+    
+    #circle_coordinates.sort(key=lambda x: x[0])
+    circle_coordinates = np.asarray(circle_coordinates)
+    circle_coordinates = circle_coordinates[np.argsort(circle_coordinates[:, 0])]
+    circle_coordinates = np.array(circle_coordinates)
+    x, y = circle_coordinates[2:-2,0], np.array(circle_coordinates[2:-2,1])
+                #9
+    pixel_height = [max(circle_coordinates[0:2,1]) - min(circle_coordinates[0:,1]), max(circle_coordinates[-2:,1]) - min(circle_coordinates[0:,1])]
+    spline = UnivariateSpline(x, y, s= 3000)
+
+    new_x = np.linspace(x[0], x[-1], 71)
+    new_y = spline(new_x)
+    ratio = (height[0] / pixel_height[0] + height[1] / pixel_height[-1]) / 2
+
+    if DEBUG_MODE:
+        with open('circle_coordinates.csv', mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(new_y)
+        
+        plt.figure(figsize=(8, 6))
+        #plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        plt.scatter(x, y, color='green', label='Detected Points', s=50)  # Adjust size here (s=50)
+        plt.scatter(new_x, new_y, color='orange', label='Saved Points', s=50)  # Adjust size here (s=50)
+        plt.plot(x, spline(x), color='red', label='Univariate Spline')
+        plt.title('Univariate Spline on Green Points')
+        plt.legend()
+        plt.axis('off')  # Turn off axis for better visualization
+                        #plt.show()
+        if not os.path.exists('final_splines'):
+            os.makedirs('final_splines')
+        plt.savefig('./final_splines/detected_spline_'+ str(debug_image_counter) + '.jpg')
+
+
+        if not os.path.exists('spline_with_img'):
+            os.makedirs('spline_with_img')
+        plt.figure(figsize=(8, 6)) 
+        plt.scatter(x, y, color='green', label='Detected Points', s=50)  # Adjust size here (s=50)
+        plt.plot(x, spline(x), color='red', label='Univariate Spline')
+        plt.imshow(cv2.cvtColor(img_cr, cv2.COLOR_BGR2RGB))
+        plt.title('Univariate Spline on Image')
+        plt.legend()
+        plt.savefig('./spline_with_img/image_and_spline_'+ str(debug_image_counter) + '.jpg')
+                
+    return new_y, ratio
 
 def detect_aruco_closest_frame(vid, output_dir="output_frames", cooldown_time=5, reloading_time = 10):
     max_frame = None
@@ -215,7 +408,7 @@ def crop_image(img, arucofound):
     marker_centers = np.array(arucofound)
     print(marker_centers)
     marker_centers[0:2] -= [0,40]
-    marker_centers[2:4] += [40,0]
+    marker_centers[2:4] += [0,80]
 
     # define size of new image in pixels
     rows = 2500
