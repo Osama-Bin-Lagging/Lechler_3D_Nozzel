@@ -20,10 +20,11 @@ DEBUG_MODE = True
 filename = "10.130.191.134_01_20240628141844680_1.mp4"
 #vid = cv2.VideoCapture(f'./Vids/{filename}')
 
-def plot_3dplot_heatmap(ball_coordinates, ratio):
+def plot_3dplot_heatmap(ball_coordinates, ratio, width):
+    print(width)
     dataf = ball_coordinates
     row_max = dataf.max(axis=1)
-    threshold = row_max.max() * 0.05
+    threshold = row_max.max() * 0.3
 
     mask = dataf >= threshold
     print(mask)
@@ -37,8 +38,9 @@ def plot_3dplot_heatmap(ball_coordinates, ratio):
 
     z = dataf.values * ratio
     y = dataf.columns.values * 15.5
-    x = np.int32(dataf.index.values) * 10
-
+    x = np.int32(dataf.index.values) * width
+    #print(x.shape, y.shape, z.shape)
+    #print(x,y,z)
     spline = RectBivariateSpline(x, y, z, s = 20000)
     z_smooth = pd.DataFrame(spline(x, y) ,index = np.int32(dataf.index.values))
 
@@ -59,12 +61,12 @@ def plot_3dplot_heatmap(ball_coordinates, ratio):
 
     row_max = z_smooth.max(axis=1)
 
-    threshold = row_max.max() * 0.2
+    threshold = row_max.max() * 0.3
     mask = z_smooth >= threshold
     z_smooth = z_smooth[mask] 
     z_smooth.fillna(0, inplace=True)
 
-    x = np.int32(z_smooth.index.values) * 15.6
+    x = np.int32(z_smooth.index.values) * width
     
     # Create the 3D surface plot
 
@@ -81,7 +83,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio):
     z_new = pd.DataFrame(heat_spline(x_new, y_new))
     row_max = z_new.max(axis=1)
 
-    threshold = row_max.max() * 0.2
+    threshold = row_max.max() * 0.3
     mask = z_new >= threshold
     
     z_new = z_new[mask] 
@@ -102,7 +104,27 @@ def plot_3dplot_heatmap(ball_coordinates, ratio):
         aspectmode='data'  # Ensures that x and y are scaled according to their data range
     ))
     heatmap_fig.show()
+            
+        
+    #first_indices, last_indices
+    first_indices = []
+    last_indices = []
 
+    arr = z_smooth.T
+    for row in arr:
+            print(arr[row])
+            nonzero_indices = np.nonzero(arr[row])[0]
+            print(nonzero_indices)  # Find indices of non-zero elements
+            if nonzero_indices.size > 0:
+                first_indices.append(nonzero_indices[0])  # First non-zero index
+                last_indices.append(nonzero_indices[-1])  # Last non-zero index
+    # Get the indices
+
+    
+    print(first_indices, last_indices)
+    print(np.max(last_indices), np.min(first_indices))
+    final_width = (np.max(last_indices) - np.min(first_indices) + 2) * 15.5
+    print(final_width)
     #fig.update_layout(scene=dict(
     #                    xaxis_title='X Axis',
     #                    yaxis_title='Y Axis',
@@ -110,6 +132,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio):
     #                    title='3D Scatter Plot')
 
     fig.update_layout(
+    title=f'3D plot with Width {final_width}',
     scene=dict(
         xaxis=dict(
             title='X Axis'

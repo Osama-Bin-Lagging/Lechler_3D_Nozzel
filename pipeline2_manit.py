@@ -60,6 +60,12 @@ def open_config_window():
     num2_entry = ttk.Entry(input_frame)
     num2_entry.pack(anchor="w", padx=5, pady=2)
 
+    width_label = ttk.Label(input_frame, text="Width between readings: ")
+    width_label.pack(anchor="w", padx=5, pady=2)
+    width_entry = ttk.Entry(input_frame)
+    width_entry.pack(anchor="w", padx=5, pady=2)
+
+
     def on_submit():
         global height, DEBUG_MODE, PRODUCTION_MODE
         mode = mode_var.get()
@@ -67,10 +73,13 @@ def open_config_window():
             num1 = num1_entry.get()
         if num2_entry.get() is not None:
             num2 = num2_entry.get()
+        if width_entry.get() is not None:
+            width = width_entry.get()
 
         try:
             num1 = float(num1)
             num2 = float(num2)
+            width = float(width)
         except ValueError:
             messagebox.showerror("Invalid Input", "Please enter valid numbers.")
             return
@@ -79,6 +88,7 @@ def open_config_window():
         inputs['mode'] = mode
         inputs['num1'] = num1
         inputs['num2'] = num2
+        inputs['width'] = width
 
         height = [float(num1), float(num2)]
         
@@ -216,8 +226,9 @@ def display_options_based_on_mode():
         show_debug_options()
 
 def capture_frame():
-    global frame, height, debug_image_counter, ratio
+    global frame, height, debug_image_counter, ratio, frame_id
     debug_image_counter += 1
+    frame_id += 1
     new_y, ratio = ld.image_to_new_y(frame, height, debug_image_counter)
 
     ball_coordinates.loc[frame_id] = new_y
@@ -225,6 +236,9 @@ def capture_frame():
 def open_folder(selector):
     global frame_id, ratio, ball_coordinates, debug_image_counter
     list1 = os.listdir(selector)
+    #list1 = [item for item in list1 if not item.startswith('.')]
+    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.svg', '.webp'}
+    list1 = [file for file in list1 if os.path.splitext(file)[1].lower() in image_extensions]
     list1.sort()
     print(list1) 
     for image in list1:
@@ -237,12 +251,15 @@ def open_folder(selector):
         ball_coordinates.loc[frame_id] = new_y
         
 def plot_function(dialog):
+    global inputs
     dialog.destroy()
     # Call your plotting function here
     global ball_coordinates, ratio
     print("Plotting function called.")
-    ld.plot_3dplot_heatmap(ball_coordinates, ratio)
+    
+    ld.plot_3dplot_heatmap(ball_coordinates, ratio, inputs['width'])
     video_label.config(image='')
+    reset_all()
 
 def end_video_options():
     end_video_dialog = tk.Toplevel(root)
@@ -261,12 +278,13 @@ def reset_all(end_video_dialog = None):
     if end_video_dialog is not None:
         end_video_dialog.destroy()
     video_label.pack()
-    global inputs, cap, fps, ball_coordinates, frame_id, is_paused
+    global inputs, cap, fps, ball_coordinates, frame_id, is_paused, debug_image_counter
+    debug_image_counter = 0
     is_paused = True
-    inputs = {}
-    if cap:
-        cap.release()
-    cap = None
+    #inputs = {}
+    #if cap:
+    #    cap.release()
+    #cap = None
     ball_coordinates = pd.DataFrame(columns = np.arange(71))
     fps = 30
     frame_id = 0
@@ -318,6 +336,7 @@ chosen_option = tk.StringVar()
 inputs = {}
 inputs['num1'] = height[0]
 inputs['num2'] = height[1]
+inputs['width'] = 50
 cap = None
 current_frame = 0
 is_paused = False
