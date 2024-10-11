@@ -16,21 +16,33 @@ import plotly.graph_objects as go
 PRODUCTION_MODE = False
 DEBUG_MODE = True
 
+cumulative_counter = 0
+nozzle_height = 300
 # Example usage
 filename = "10.130.191.134_01_20240628141844680_1.mp4"
 #vid = cv2.VideoCapture(f'./Vids/{filename}')
 
-def plot_3dplot_heatmap(ball_coordinates, ratio, width):
+def fix_ball_coord(z ,wait_time, width):
+    print(z.shape)
     print(width)
-    dataf = ball_coordinates
-    row_max = dataf.max(axis=1)
-    threshold = row_max.max() * 0.3
+    speed = 60
+    time_on_1_det = width/ speed
+    for start in range(1, z.shape[0] - 1):
+        z.loc[start + 1: z.shape[0]] -= z.loc[start] * time_on_1_det/wait_time * 2
+    return z
 
-    mask = dataf >= threshold
-    print(mask)
+def plot_3dplot_heatmap(ball_coordinates, ratio, width, wait_time = None):
+    global cumulative_counter
+    #print(width)
+    dataf = ball_coordinates
+    #row_max = dataf.max(axis=1)
+    #threshold = row_max.max() * 0.05
+
+    #mask = dataf >= threshold
+    #print(mask)
     
-    dataf = dataf[mask] 
-    dataf.fillna(0, inplace=True)
+    #dataf = dataf[mask] 
+    #dataf.fillna(0, inplace=True)
     # Create a grid of coordinates for the smooth plot
     #y_smooth = np.linspace(0, y[-1], 100)
     #x_smooth, y_smooth = np.meshgrid(x, y_smooth)
@@ -40,6 +52,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width):
     y = dataf.columns.values * 15.5
     x = np.int32(dataf.index.values) * width
     #print(x.shape, y.shape, z.shape)
+    #print(x,y,z)
     #print(x,y,z)
     spline = RectBivariateSpline(x, y, z, s = 20000)
     z_smooth = pd.DataFrame(spline(x, y) ,index = np.int32(dataf.index.values))
@@ -53,13 +66,16 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width):
     #new_y = np.linspace(y[0], y[-1], 100)
     #print(new_x,new_y)
     #z_smooth = spline(new_x, new_y)
-
+    #print(z_smooth)
     z_smooth.loc[0] = np.zeros_like(z_smooth.loc[1])
     z_smooth.loc[z_smooth.shape[0]] = np.zeros_like(z_smooth.loc[1])
 
     z_smooth = z_smooth.sort_index()
 
     row_max = z_smooth.max(axis=1)
+    #column_max = z_smooth.max(axis=0)
+
+    #col_thres = column_max.max() * 0.3
 
     threshold = row_max.max() * 0.3
     mask = z_smooth >= threshold
@@ -69,70 +85,140 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width):
     x = np.int32(z_smooth.index.values) * width
     
     # Create the 3D surface plot
-
-    fig = go.Figure(data=[go.Surface(z=z_smooth, x=y, y=x)])
-
     # Interpolate onto a new grid
     n = 50  # Increase the number of points by a factor of n
     x_new = np.linspace(0, x[-1], n * len(x))
     y_new = np.linspace(0, y[-1], n * len(y))
     
+    z_smooth = fix_ball_coord(z_smooth, wait_time, width)
+
     heat_spline = RectBivariateSpline(x, y, z_smooth)
 
     # Get the interpolated values
-    z_new = pd.DataFrame(heat_spline(x_new, y_new))
-    row_max = z_new.max(axis=1)
-
-    threshold = row_max.max() * 0.3
-    mask = z_new >= threshold
-    
-    z_new = z_new[mask] 
-    z_new.fillna(0, inplace=True)
-    heatmap_fig = go.Figure(data=[go.Heatmap(z=z_new, x=y_new, y=x_new, colorscale='Viridis')])
-
-    heatmap_fig.update_layout(
-    scene=dict(
-        xaxis=dict(
-            title='X Axis'
-        ),
-        yaxis=dict(
-            title='Y Axis'
-        ),
-        zaxis=dict(
-            title='Z Axis'
-        ),
-        aspectmode='data'  # Ensures that x and y are scaled according to their data range
-    ))
-    heatmap_fig.show()
-            
-        
+    z_smooth = pd.DataFrame(heat_spline(x_new, y_new))
     #first_indices, last_indices
-    first_indices = []
-    last_indices = []
+    #first_indices = []
+    #last_indices = []
 
-    arr = z_smooth.T
-    for row in arr:
-            print(arr[row])
-            nonzero_indices = np.nonzero(arr[row])[0]
-            print(nonzero_indices)  # Find indices of non-zero elements
-            if nonzero_indices.size > 0:
-                first_indices.append(nonzero_indices[0])  # First non-zero index
-                last_indices.append(nonzero_indices[-1])  # Last non-zero index
+    #arr = z_new.T
+    #for row in arr:
+            #print(arr[row])
+            #nonzero_indices = np.nonzero(arr[row])[0]
+            #print(nonzero_indices)  # Find indices of non-zero elements
+            #if nonzero_indices.size > 0:
+            #    first_indices.append(nonzero_indices[0])  # First non-zero index
+            #    last_indices.append(nonzero_indices[-1])  # Last non-zero index
+
+    #print(first_indices, 'werfghj',last_indices)
+    #print(np.max(last_indices)/n, np.min(first_indices)/n)
+    #final_width = (np.max(last_indices)/n - np.min(first_indices)/n + 2) * 15.5
+    #print(final_width)
+
     # Get the indices
+    #first_indices = []
+    #last_indices = []
+
+    #arr =arr.T
+    #for row in arr:
+    #        #print(arr[row])
+    #        nonzero_indices = np.nonzero(arr[row])[0]
+    #        #print(nonzero_indices)  # Find indices of non-zero elements
+    #        if nonzero_indices.size > 0:
+    #            first_indices.append(nonzero_indices[0])  # First non-zero index
+    #            last_indices.append(nonzero_indices[-1])  # Last non-zero index 
+
 
     
-    print(first_indices, last_indices)
-    print(np.max(last_indices), np.min(first_indices))
-    final_width = (np.max(last_indices) - np.min(first_indices) + 2) * 15.5
-    print(final_width)
+    #print(arr.shape, row_sum.shape)    
+
+    #print(first_indices, last_indices)
+    #print(np.max(last_indices)/n, np.min(first_indices)/n)
+    #final_depth = (np.max(last_indices)/n - np.min(first_indices)/n + 2) * width
+    #print(final_depth)
     #fig.update_layout(scene=dict(
     #                    xaxis_title='X Axis',
     #                    yaxis_title='Y Axis',
     #                    zaxis_title='Z Axis'),
     #                    title='3D Scatter Plot')
+    arr = z_smooth.copy()
+    arr[arr <= 0] = 0
+    row_sum = 0
+    col_sum = 0
+    row_sum = np.average(arr, axis = 0)
+    #for i in np.arange(0.0, 0.31, 0.01):
+    #    threshold = np.max(row_sum) * i
+    #    row_sum[row_sum < threshold] = 0
+    #    #for i in range(len(row_sum)):
+    #    #    print(i, row_sum[i])
+    #    nonzero_indices = np.nonzero(row_sum)[0]
+    #    #print(row_sum, 'qwerth',nonzero_indices)
+    #    final_width = (nonzero_indices[-1]/n - nonzero_indices[0]/n +2) * 15.5
+    #    print(i, ' : ', final_width)
+    threshold = np.max(row_sum) * 0.2
+    row_sum[row_sum < threshold] = 0
+        #for i in range(len(row_sum)):
+        #    print(i, row_sum[i])
+    nonzero_indices = np.nonzero(row_sum)[0]
+    #print(row_sum, 'qwerth',nonzero_indices)
+    final_width = (nonzero_indices[-1]/n - nonzero_indices[0]/n +2) * 15.5
+    col_sum = np.average(arr, axis = 1)
+    plt.plot(range(len(col_sum)), col_sum * len(col_sum))
+
+
+    #for i in range(len(row_sum)):
+    #    print(i, row_sum[i])
+    col_nonzero_indices = np.nonzero(col_sum)[0]
+    #print(col_sum, 'qwerth',nonzero_indices)
+    final_depth = (col_nonzero_indices[-1]/n - col_nonzero_indices[0]/n +2) * width
+    #print(nonzero_indices[-1], nonzero_indices[0])
+    #print(col_nonzero_indices[-1], col_nonzero_indices[0])
+    #print(final_width, final_depth)
+    tan_theta = final_width/(2 * nozzle_height)
+    spray_angle = np.rad2deg(np.arctan(tan_theta)) * 2
+    #print(final_width, final_depth)
+    #print(spray_angle)
+
+    row_max = z_smooth.max(axis=1)
+    threshold = row_max.max() * 0.01
+    mask = z_smooth >= threshold
+    
+    z_smooth = z_smooth[mask] 
+    z_smooth.fillna(0, inplace=True)
+
+
+
+    #print(slicing_params, z_smooth.shape, y_new.shape, x_new.shape)
+    #z_smooth = z_smooth[:,:]
+
+    #print(z_smooth_sliced.shape, y_new_sliced.shape, x_new_sliced.shape)
+    # Plotting heatmap and surface plot
+    #heatmap_fig = go.Figure(data=[go.Heatmap(z=z_smooth_sliced.values, x=y_new_sliced, y=x_new_sliced, colorscale='Viridis')])
+    #fig = go.Figure(data=[go.Surface(z=z_smooth_sliced.values, x=y_new_sliced, y=x_new_sliced)])
+
+    heatmap_fig = go.Figure(data=[go.Heatmap(z=z_smooth, x=y_new, y=x_new, colorscale='Viridis')])
+    fig = go.Figure(data=[go.Surface(z=z_smooth, x=y_new, y=x_new)])  
+    heatmap_fig.update_layout(
+    #title=f'Heatmap, spray angle is {round(spray_angle, 3)} degrees',
+    scene=dict(
+        xaxis=dict(
+            title='X Axis'
+        ),
+        yaxis=dict(
+            title='Y Axis'
+        ),
+        zaxis=dict(
+            title='Z Axis'
+        ),
+        aspectmode='data'  # Ensures that x and y are scaled according to their data range
+    ))
+    heatmap_fig.update_yaxes(
+    scaleanchor="x",
+    scaleratio=1,
+  )
+    #--------------------------------heatmap_fig.show()
 
     fig.update_layout(
-    title=f'3D plot with Width {final_width}',
+    #title=f'3D plot with Width {final_width}mm',
     scene=dict(
         xaxis=dict(
             title='X Axis'
@@ -146,15 +232,22 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width):
         aspectmode='data'  # Ensures that x and y are scaled according to their data range
     ))
     
-    fig.show()
-    fig.write_html("3D_plot.html")
+    #--------------------------------fig.show()
+    #fig.write_html("3D_plot.html")
 
+    image_path = './images/cumulative'
+    #image_path = './images'
     #fig.show()
+    if os.path.exists(image_path):
+        os.remove(image_path)
+
     if not os.path.exists("images"):
         os.mkdir("images")
-    
-    fig.write_image("images/3Dplot.pdf")
-    heatmap_fig.write_image('images/heatmap.pdf')
+    plt.savefig(f'./images/cumulative') 
+    plt.cla()
+    fig.write_image("images/3Dplot.png")
+    heatmap_fig.write_image('images/heatmap.png')
+    return final_width, final_depth, spray_angle
 
 def image_to_new_y(frame, height, debug_image_counter):
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
@@ -200,9 +293,41 @@ def image_to_new_y(frame, height, debug_image_counter):
 
     new_x = np.linspace(x[0], x[-1], 71)
     new_y = spline(new_x)
-    ratio = (height[0] / pixel_height[0] + height[1] / pixel_height[-1]) / 2
+    width_calc = new_y - np.min(new_y)
+    max_ind = np.where(width_calc == np.max(width_calc))[0][0]
+    # Find first local minima
+    first_minima = None
+    for i in range(2, max_ind):
+        if width_calc[i-2] > width_calc[i] < width_calc[i+2]:
+            first_minima = i
+            break
 
-    if DEBUG_MODE:
+    # Find last local minima
+    last_minima = None
+    for i in range(len(width_calc)-3, max_ind, -1):
+        if width_calc[i-2] > width_calc[i] < width_calc[i+2]:
+            last_minima = i
+            break
+
+    if first_minima is not None and last_minima is not None:   
+        if first_minima != last_minima:
+            new_y[:first_minima] = np.min(new_y)
+            new_y[last_minima:] = np.min(new_y)
+            width_calc[:first_minima] = 0
+            width_calc[last_minima:] = 0
+    threshold = np.max(width_calc) * 0.25
+    
+    width_calc[width_calc < threshold] = 0
+    for thres_ind in range(max_ind, 0, -1):
+        if width_calc[thres_ind] == 0:
+            width_calc[:thres_ind] = 0
+            break
+
+    for thres_ind in range(max_ind, len(width_calc)):
+        if width_calc[thres_ind] == 0:
+            width_calc[thres_ind:] = 0
+            break
+    if DEBUG_MODE or True:
         with open('circle_coordinates.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(new_y)
@@ -210,8 +335,14 @@ def image_to_new_y(frame, height, debug_image_counter):
         plt.figure(figsize=(8, 6))
         #plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         plt.scatter(x, y, color='green', label='Detected Points', s=50)  # Adjust size here (s=50)
-        plt.scatter(new_x, new_y, color='orange', label='Saved Points', s=50)  # Adjust size here (s=50)
+        plt.scatter(new_x, width_calc + np.min(new_y), color='orange', label='Saved Points', s=50)  # Adjust size here (s=50)
         plt.plot(x, spline(x), color='red', label='Univariate Spline')
+        print(np.max(new_y), np.min(new_y),np.max(new_y)-np.min(new_y))
+        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.2 + np.min(new_y)]) * len(x), label = '20%')
+        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.15 + np.min(new_y)]) * len(x), label = '15%')
+        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.10 + np.min(new_y)]) * len(x), label = '10%')
+        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.075 + np.min(new_y)]) * len(x), label = '7.5%')
+        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.05 + np.min(new_y)]) * len(x), label = '5%')
         plt.title('Univariate Spline on Green Points')
         plt.legend()
         plt.axis('off')  # Turn off axis for better visualization
@@ -230,8 +361,15 @@ def image_to_new_y(frame, height, debug_image_counter):
         plt.title('Univariate Spline on Image')
         plt.legend()
         plt.savefig('./spline_with_img/image_and_spline_'+ str(debug_image_counter) + '.jpg')
+    
+    #print(row_sum, 'qwerth',nonzero_indices)
+    nonzero_indices = np.nonzero(width_calc)[0]
+    final_width = (nonzero_indices[-1] - nonzero_indices[0] +2) * 15.5
+    
+   
+    ratio = (height[0] / pixel_height[0] + height[1] / pixel_height[-1]) / 2
                 
-    return new_y, ratio
+    return new_y, ratio, final_width
 
 def detect_aruco_closest_frame(vid, output_dir="output_frames", cooldown_time=5, reloading_time = 10):
     max_frame = None
