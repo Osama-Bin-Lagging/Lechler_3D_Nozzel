@@ -17,12 +17,17 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
 import liqdist_manit as ld
+import liqdist_archit as lda
 
 DEBUG_MODE = False
 PRODUCTION_MODE = not DEBUG_MODE
 
 ld.DEBUG_MODE      = DEBUG_MODE
 ld.PRODUCTION_MODE = PRODUCTION_MODE
+
+lda.DEBUG_MODE      = DEBUG_MODE
+lda.PRODUCTION_MODE = PRODUCTION_MODE
+
 debug_image_counter = 0
 ball_coordinates = pd.DataFrame(columns = np.arange(71))
 frame = None
@@ -228,7 +233,6 @@ def start_cam(arg):
     fps = cap.get(cv2.CAP_PROP_FPS)
     print('fps', fps)
     capture_button.pack(pady=10)
-    video_label.config(image='')
     show_frame()
 
 def show_frame():
@@ -320,10 +324,8 @@ def capture_frame():
     global frame, height, debug_image_counter, ratio, frame_id
     debug_image_counter += 1
     frame_id += 1
-    new_y, ratio, final_width = ld.image_to_new_y(frame, height, debug_image_counter)
-#---------------------------------------------------------------------------------------------------------------------------------
-# NEED TO FIX WIDTH
-#---------------------------------------------------------------------------------------------------------------------------------
+    new_y, ratio = ld.image_to_new_y(frame, height, debug_image_counter)
+
     ball_coordinates.loc[frame_id] = new_y
 
 def open_folder(selector):
@@ -338,18 +340,24 @@ def open_folder(selector):
     width_list = np.zeros(len(list1) - 2)
     for image in list1:
         frame_id += 1 
+        counter += 1
         image_path = os.path.join(selector, image)
         frame = cv2.imread(image_path)
+        camera_matrix, distortion_coefficients = lda.read_cam_calibration()
+        #frame = lda.intrinsic(frame,camera_matrix,distortion_coefficients)
+        arucoFound = lda.detect_arucos(frame,camera_matrix,distortion_coefficients)
+        img_cr = lda.crop_image(frame,arucoFound)
+        img_raw = lda.morphologic(img_cr)
+        width, balls_found = lda.find_balls(img_raw,img_cr, debug_image_counter)
         debug_image_counter += 1
-        new_y, ratio, width = ld.image_to_new_y(frame, height, debug_image_counter)
-        counter += 1
         if counter != 0 and counter != len(list1)-1:
             print(len(list1), counter)
             width_list[counter%(len(list1) - 2)] = width
         elif counter == len(list1) - 1:
             print(np.average(width_list))
             print(f'Spray Width {round(np.average(width_list) * 1.1, 3)} mm')
-        ball_coordinates.loc[frame_id] = new_y
+        print(ball_coordinates.shape, frame_id, balls_found, balls_found.shape)
+        ball_coordinates.loc[frame_id] = balls_found[2:-2]
     print(width_list)
     final_width = np.average(width_list)
         
@@ -409,35 +417,6 @@ def reset_all(end_video_dialog = None):
     video_label.config(image='')
     print("All settings reset.")
     
-def display_logo():
-    try:
-        # Open the image
-        logo_img = Image.open("logo.png")
-        
-        # Calculate the aspect ratio and resize
-        target_width, target_height = 600, 400
-        original_width, original_height = logo_img.size
-        aspect_ratio = original_width / original_height
-
-        # Determine the new dimensions maintaining the aspect ratio
-        if (target_width / target_height) > aspect_ratio:
-            # Fit to height
-            new_height = target_height
-            new_width = int(target_height * aspect_ratio)
-        else:
-            # Fit to width
-            new_width = target_width
-            new_height = int(target_width / aspect_ratio)
-
-        # Resize the image with LANCZOS filter for high-quality downsampling
-        logo_img = logo_img.resize((new_width, new_height), Image.LANCZOS)
-        logo_photo = ImageTk.PhotoImage(logo_img)
-
-        # Configure the label to display the image
-        video_label.config(image=logo_photo)
-        video_label.image = logo_photo  # Keep a reference to avoid garbage collection
-    except Exception as e:
-        print(f"Error loading logo: {e}")
 
 root = tk.Tk()
 root.title("Lechler GUI")
@@ -449,8 +428,6 @@ video_frame.place(relx=0.5, rely=0.5, anchor="center", width=600, height=400)
 
 video_label = ttk.Label(video_frame)
 video_label.pack(fill="both", expand=True)
-
-display_logo()
 
 # Bottom buttons frame
 buttons_frame = ttk.Frame(root)

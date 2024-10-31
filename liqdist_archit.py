@@ -317,7 +317,7 @@ def find_islands():
     pass
 
 
-def find_balls(img_raw,img_undist,output_dir,filename,count):
+def find_balls(img_raw,img_undist, counter):
     #++++++++++++++++++++++++++++++++
     #+ Find balls on the measuring track +
     #++++++++++++++++++++++++++++++++
@@ -427,11 +427,6 @@ def find_balls(img_raw,img_undist,output_dir,filename,count):
         plt.axis('off')
         #plt.show()
     
-    if PRODUCTION_MODE:
-        x_max_height_column= 38 #int(input("Enter the cylinder number of maximum height"))
-    if DEBUG_MODE:
-        x_max_height_column = 38
-    
     centers_columns = []
     for (x,y,r) in circles:
         centers_columns.append((x,y))
@@ -442,9 +437,10 @@ def find_balls(img_raw,img_undist,output_dir,filename,count):
     
     y_pixel_coord = []
     x_pos = []
-
+    
     for _,i in centers_columns:
         y_pixel_coord.append(i)
+    x_max_height_column = np.argmax(y_pixel_coord[5: -5])
     temp_min_arg = np.argmin(np.array(y_pixel_coord))
     if DEBUG_MODE:
         print("The y pixels: ",y_pixel_coord)
@@ -456,8 +452,6 @@ def find_balls(img_raw,img_undist,output_dir,filename,count):
         # Check if the index is within the valid range before accessing the array
         if 5 <= index < len(y_height):
             y_height[index] = y_pixel_coord[i]
-    return tube_numbers, y_height
-    '''
     print(np.argmin(y_height))
     
     ## Doing Simple Linear Regression
@@ -541,8 +535,10 @@ def find_balls(img_raw,img_undist,output_dir,filename,count):
     plt.xlabel('Position in mm')
     plt.ylabel('Level in mm')
     #plt.show()
-    plt.savefig('Liquid Distribution Measurement.png')
-
+    if not os.path.exists('final_points'):
+            os.makedirs('final_points')
+    plt.savefig('./final_points/Liquid_Distribution_Measurement' + str(counter) + '.png')
+    plt.cla()
     if PRODUCTION_MODE:
         #percent_deviation= int(input("Enter the percentage deviation threshold you want to see"))
         percent_deviation = 15
@@ -577,6 +573,8 @@ def find_balls(img_raw,img_undist,output_dir,filename,count):
         scaling_factor = max_height / float(height)
     if max_width/float(width) < scaling_factor:
         scaling_factor = max_width / float(width)
+    return width, y_height
+'''
     # resize image
     img = cv2.resize(img, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA)
 

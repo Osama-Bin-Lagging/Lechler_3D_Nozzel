@@ -12,7 +12,7 @@ from PIL import Image, ImageTk
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import RectBivariateSpline
 import plotly.graph_objects as go
-
+import time
 PRODUCTION_MODE = False
 DEBUG_MODE = True
 
@@ -77,7 +77,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width, wait_time = None):
 
     #col_thres = column_max.max() * 0.3
 
-    threshold = row_max.max() * 0.3
+    threshold = row_max.max() * 0.2
     mask = z_smooth >= threshold
     z_smooth = z_smooth[mask] 
     z_smooth.fillna(0, inplace=True)
@@ -154,7 +154,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width, wait_time = None):
     #    #print(row_sum, 'qwerth',nonzero_indices)
     #    final_width = (nonzero_indices[-1]/n - nonzero_indices[0]/n +2) * 15.5
     #    print(i, ' : ', final_width)
-    threshold = np.max(row_sum) * 0.2
+    threshold = np.max(row_sum) * 0.05
     row_sum[row_sum < threshold] = 0
         #for i in range(len(row_sum)):
         #    print(i, row_sum[i])
@@ -215,7 +215,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width, wait_time = None):
     scaleanchor="x",
     scaleratio=1,
   )
-    #--------------------------------heatmap_fig.show()
+    #heatmap_fig.show()
 
     fig.update_layout(
     #title=f'3D plot with Width {final_width}mm',
@@ -232,7 +232,7 @@ def plot_3dplot_heatmap(ball_coordinates, ratio, width, wait_time = None):
         aspectmode='data'  # Ensures that x and y are scaled according to their data range
     ))
     
-    #--------------------------------fig.show()
+    #fig.show()
     #fig.write_html("3D_plot.html")
 
     image_path = './images/cumulative'
@@ -337,15 +337,14 @@ def image_to_new_y(frame, height, debug_image_counter):
         plt.scatter(x, y, color='green', label='Detected Points', s=50)  # Adjust size here (s=50)
         plt.scatter(new_x, width_calc + np.min(new_y), color='orange', label='Saved Points', s=50)  # Adjust size here (s=50)
         plt.plot(x, spline(x), color='red', label='Univariate Spline')
-        print(np.max(new_y), np.min(new_y),np.max(new_y)-np.min(new_y))
-        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.2 + np.min(new_y)]) * len(x), label = '20%')
-        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.15 + np.min(new_y)]) * len(x), label = '15%')
-        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.10 + np.min(new_y)]) * len(x), label = '10%')
-        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.075 + np.min(new_y)]) * len(x), label = '7.5%')
-        plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.05 + np.min(new_y)]) * len(x), label = '5%')
-        plt.title('Univariate Spline on Green Points')
-        plt.legend()
-        plt.axis('off')  # Turn off axis for better visualization
+        #plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.2 + np.min(new_y)]) * len(x), label = '20%')
+        #plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.15 + np.min(new_y)]) * len(x), label = '15%')
+        #plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.10 + np.min(new_y)]) * len(x), label = '10%')
+        #plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.075 + np.min(new_y)]) * len(x), label = '7.5%')
+        #plt.plot(x, list([(np.max(new_y)-np.min(new_y)) * 0.05 + np.min(new_y)]) * len(x), label = '5%')
+        #plt.title('Univariate Spline on Green Points')
+        #plt.legend()
+        #plt.axis('off')  # Turn off axis for better visualization
                         #plt.show()
         if not os.path.exists('final_splines'):
             os.makedirs('final_splines')
@@ -354,13 +353,13 @@ def image_to_new_y(frame, height, debug_image_counter):
 
         if not os.path.exists('spline_with_img'):
             os.makedirs('spline_with_img')
-        plt.figure(figsize=(8, 6)) 
-        plt.scatter(x, y, color='green', label='Detected Points', s=50)  # Adjust size here (s=50)
-        plt.plot(x, spline(x), color='red', label='Univariate Spline')
-        plt.imshow(cv2.cvtColor(img_cr, cv2.COLOR_BGR2RGB))
-        plt.title('Univariate Spline on Image')
-        plt.legend()
-        plt.savefig('./spline_with_img/image_and_spline_'+ str(debug_image_counter) + '.jpg')
+        #plt.figure(figsize=(8, 6)) 
+        #plt.scatter(x, y, color='green', label='Detected Points', s=50)  # Adjust size here (s=50)
+        #plt.plot(x, spline(x), color='red', label='Univariate Spline')
+        #plt.imshow(cv2.cvtColor(img_cr, cv2.COLOR_BGR2RGB))
+        #plt.title('Univariate Spline on Image')
+        #plt.legend()
+        #plt.savefig('./spline_with_img/image_and_spline_'+ str(debug_image_counter) + '.jpg')
     
     #print(row_sum, 'qwerth',nonzero_indices)
     nonzero_indices = np.nonzero(width_calc)[0]
